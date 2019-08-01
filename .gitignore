@@ -3,6 +3,7 @@
 
 # experimental crap
 *.lock
+*.sqlite
 
 # User-specific files
 *.suo
