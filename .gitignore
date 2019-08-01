@@ -4,6 +4,7 @@
 # experimental crap
 *.lock
 *.sqlite
+**.vs**
 
 # User-specific files
 *.suo
