@@ -126,4 +126,8 @@ namespace ArtProject
             return returns;
         }
     }
+public static Color[,] WhiteSort(Color[,] texture, byte threshold)
+{
+
+}
 }
