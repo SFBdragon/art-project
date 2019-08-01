@@ -125,9 +125,9 @@ namespace ArtProject
                 returns.Push(new Vector2((float)Math.Cos(i.X) * i.Y, (float)Math.Sin(i.X) * i.Y));
             return returns;
         }
+        public static Color[,] PixelSort(Color[,] texture, byte valueThreshhold, bool aboveThreshhold, bool xAxis)
+        {
+            return;
+        }
     }
-public static Color[,] WhiteSort(Color[,] texture, byte threshold)
-{
-        // thing
-}
 }
