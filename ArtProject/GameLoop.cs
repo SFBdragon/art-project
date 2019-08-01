@@ -128,6 +128,6 @@ namespace ArtProject
     }
 public static Color[,] WhiteSort(Color[,] texture, byte threshold)
 {
-
+        // thing
 }
 }
