@@ -42,7 +42,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DrawVertDeclaration.cs" />
     <Compile Include="GameLoop.cs" />
+    <Compile Include="ImGuiRenderer.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>
