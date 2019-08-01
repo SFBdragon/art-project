@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArtProject", "ArtProject.csproj", "{A2E7606A-1B30-4F55-B48B-A1FF773140EE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImGuiNET.Renderer", "..\..\..\csharp\XNA\ImGuiNET.Renderer\ImGuiNET.Renderer.csproj", "{F379C615-E6CD-49C6-AD11-CDDA217788CF}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{A2E7606A-1B30-4F55-B48B-A1FF773140EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A2E7606A-1B30-4F55-B48B-A1FF773140EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A2E7606A-1B30-4F55-B48B-A1FF773140EE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F379C615-E6CD-49C6-AD11-CDDA217788CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F379C615-E6CD-49C6-AD11-CDDA217788CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F379C615-E6CD-49C6-AD11-CDDA217788CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F379C615-E6CD-49C6-AD11-CDDA217788CF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
