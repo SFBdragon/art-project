@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="GameLoop.cs" />
+    <Compile Include="Processors.cs" />
     <Compile Include="ImGuiNET.Renderer\DrawVertDeclaration.cs" />
     <Compile Include="ImGuiNET.Renderer\ImGuiRenderer.cs" />
     <Compile Include="Program.cs" />
