@@ -1,11 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using ImGuiNET.XNA;
-
 
 namespace ArtProject
 {
@@ -14,21 +14,15 @@ namespace ArtProject
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
-        public readonly int screenWidth;
-        public readonly int screenHeight;
-        public const float scale = 2f;
-
+        private Input inputHandler;
         private ImGuiRenderer guiRenderer;
-        private Texture2D drawable;
+        private Texture2D texture;
         
         public GameLoop()
         {
-            screenWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
-            screenHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
-
             Window.AllowAltF4 = true;
             Window.Title = "Art Project";
-            Window.IsBorderless = true;
+            Window.IsBorderless = false;
             Window.AllowUserResizing = false;
 
             IsMouseVisible = true;
@@ -36,18 +30,38 @@ namespace ArtProject
 
             graphics = new GraphicsDeviceManager(this)
             {
-                PreferredBackBufferWidth = screenWidth,
-                PreferredBackBufferHeight = screenHeight,
-                IsFullScreen = true,
-                SynchronizeWithVerticalRetrace = true
+                IsFullScreen = false,
+                SynchronizeWithVerticalRetrace = false
             };
+
             Content.RootDirectory = "Content";
         }
 
         protected override void Initialize()
         {
+            #region Get Image
+            OpenFileDialog ofd = new OpenFileDialog
+            {
+                FileName = "Image",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                Filter = "Images|*.png;*.bmp;*.jpg"
+            };
+            if (ofd.ShowDialog() == true)
+                using (System.IO.FileStream stream = new System.IO.FileStream(ofd.FileName, System.IO.FileMode.Open))
+                    texture = Texture2D.FromStream(GraphicsDevice, stream);
+            else Exit();
+            #endregion
+            #region Configure window
+            graphics.PreferredBackBufferWidth = texture.Width;
+            graphics.PreferredBackBufferHeight = texture.Height;
+            graphics.ApplyChanges();
+            #endregion
+
             guiRenderer = new ImGuiRenderer(this);
             guiRenderer.RebuildFontAtlas();
+
+            inputHandler = new Input(Keyboard.GetState(), Mouse.GetState(), new Dictionary<object, int>());
+
 
             base.Initialize();
         }
@@ -55,9 +69,8 @@ namespace ArtProject
         protected override void LoadContent()
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            guiRenderer.BindTexture(new Texture2D(GraphicsDevice, screenWidth, screenHeight));
+            guiRenderer.BindTexture(new Texture2D(GraphicsDevice, texture.Width, texture.Height));
 
-            drawable = new Texture2D(GraphicsDevice, (int)(screenWidth / scale), (int)(screenHeight / scale));
 
         }
 
@@ -66,7 +79,8 @@ namespace ArtProject
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-
+            for (int i = 0; i < 1000000; i++)
+                _ = Math.Sqrt(double.MaxValue);
 
             base.Update(gameTime);
         }
@@ -76,7 +90,7 @@ namespace ArtProject
             GraphicsDevice.Clear(clear);
 
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-            spriteBatch.Draw(drawable, Vector2.Zero, null, Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+            spriteBatch.Draw(texture, Vector2.Zero, null, Color.White, 0f, Vector2.Zero, 1, SpriteEffects.None, 0f);
             spriteBatch.End();
 
             guiRenderer.BeforeLayout(gameTime);
@@ -99,7 +113,6 @@ namespace ArtProject
                     if (ImGui.MenuItem("Exit")) { Exit(); }
                     ImGui.EndMenu();
                 }
-                //if(ImGui.BeginMenu(""))
                 ImGui.EndMenuBar();
             }
             ImGui.End();
