@@ -16,7 +16,12 @@ namespace ArtProject
 
         private Input inputHandler;
         private ImGuiRenderer guiRenderer;
-        private Texture2D texture;
+        private Texture2D render;
+        private Color[,] texture;
+
+        private float wrap = 0.05f;
+        private bool above = true;
+        private bool reverse = false;
         
         public GameLoop()
         {
@@ -39,6 +44,7 @@ namespace ArtProject
 
         protected override void Initialize()
         {
+            Texture2D image;
             #region Get Image
             OpenFileDialog ofd = new OpenFileDialog
             {
@@ -48,12 +54,20 @@ namespace ArtProject
             };
             if (ofd.ShowDialog() == true)
                 using (System.IO.FileStream stream = new System.IO.FileStream(ofd.FileName, System.IO.FileMode.Open))
-                    texture = Texture2D.FromStream(GraphicsDevice, stream);
-            else Exit();
+                    image = Texture2D.FromStream(GraphicsDevice, stream);
+            else throw new Exception("Nothing selected");
+
+            texture = new Color[image.Width, image.Height];
+            {
+                var array = new Color[image.Width * image.Height];
+                image.GetData(array);
+                for (int i = 0; i < array.Length; i++)
+                    texture[i / image.Height, i % image.Height] = array[i];
+            }
             #endregion
             #region Configure window
-            graphics.PreferredBackBufferWidth = texture.Width;
-            graphics.PreferredBackBufferHeight = texture.Height;
+            graphics.PreferredBackBufferWidth = image.Width;
+            graphics.PreferredBackBufferHeight = image.Height;
             graphics.ApplyChanges();
             #endregion
 
@@ -62,16 +76,15 @@ namespace ArtProject
 
             inputHandler = new Input(Keyboard.GetState(), Mouse.GetState(), new Dictionary<object, int>());
 
-
             base.Initialize();
         }
 
         protected override void LoadContent()
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            guiRenderer.BindTexture(new Texture2D(GraphicsDevice, texture.Width, texture.Height));
 
-
+            render = new Texture2D(GraphicsDevice, texture.GetLength(0), texture.GetLength(1));
+            guiRenderer.BindTexture(new Texture2D(GraphicsDevice, render.Width, render.Height));
         }
 
         protected override void Update(GameTime gameTime)
@@ -79,18 +92,28 @@ namespace ArtProject
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            for (int i = 0; i < 1000000; i++)
-                _ = Math.Sqrt(double.MaxValue);
+            var localarr = (Color[,])texture.Clone();
+
+            // tex, 0.9f, false, false
+            Processors.PixelSort(ref localarr, wrap, above, reverse);
+
+            {
+                var array = new Color[render.Width * render.Height];
+                for (int x = 0; x < render.Width; x++)
+                    for (int y = 0; y < render.Height; y++)
+                        array[x * render.Height + y] = localarr[x, y];
+                render.SetData(array);
+            }
 
             base.Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(clear);
+            GraphicsDevice.Clear(Color.Black);
 
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-            spriteBatch.Draw(texture, Vector2.Zero, null, Color.White, 0f, Vector2.Zero, 1, SpriteEffects.None, 0f);
+            spriteBatch.Draw(render, Vector2.Zero, null, Color.White, 0f, Vector2.Zero, 1, SpriteEffects.None, 0f);
             spriteBatch.End();
 
             guiRenderer.BeforeLayout(gameTime);
@@ -100,8 +123,6 @@ namespace ArtProject
             base.Draw(gameTime);
         }
 
-        Color clear = Color.Gray;
-        bool window_preferences = false;
         public void GuiRender()
         {
             ImGui.Begin("Debug", ImGuiWindowFlags.MenuBar);
@@ -109,21 +130,15 @@ namespace ArtProject
             {
                 if (ImGui.BeginMenu("Window"))
                 {
-                    if (ImGui.MenuItem("Preferences")) window_preferences = !window_preferences;
                     if (ImGui.MenuItem("Exit")) { Exit(); }
                     ImGui.EndMenu();
                 }
                 ImGui.EndMenuBar();
             }
+            ImGui.SliderFloat("Wrap value", ref wrap, 0f, 1f);
+            ImGui.Checkbox("Above", ref above);
+            ImGui.Checkbox("Reverse", ref reverse);
             ImGui.End();
-            if(window_preferences)
-            {
-                ImGui.Begin("Window Preferences");
-                System.Numerics.Vector3 clearVec = new System.Numerics.Vector3(clear.R / 255f, clear.G / 255f, clear.B / 255f);
-                ImGui.ColorPicker3("Background", ref clearVec);
-                clear = new Color(clearVec.X, clearVec.Y, clearVec.Z);
-                ImGui.End();
-            }
         }
     }
 }
