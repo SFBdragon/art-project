@@ -7,32 +7,40 @@ using System.IO;
 using System.Collections.Generic;
 using ImGuiNET;
 using ImGuiNET.XNA;
+using Extended.Generic;
 
 namespace ArtProject
 {
     public class GameLoop : Game
     {
+        // library managers
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
+        // managers
         private Input inputHandler;
         private ImGuiRenderer guiRenderer;
 
-        private Color[,] texture;
-        private Color[,] current;
+        // texture data
+        private Color[,] original = new Color[0, 0];
+        private Color[,] texture = new Color[0, 0];
         private Texture2D render;
 
-        private bool process = false;
-        private bool iterate = false;
-        private int y = 0;
-        private Queue<Point[]> queue = new Queue<Point[]>();
-        private bool save = false;
+        // flags and values for processing
         private bool open = true;
+        private bool save = false;
 
+        private bool reset = true;
+        private bool scramble = false;
+        private bool descramble = false;
+        private bool pixelsort = false;
         private float wrap = 0.5f;
         private bool above = false;
         private bool reverse = false;
-        
+        private bool coloursplit = false;
+        private int split = 0;
+
+        // constructor
         public GameLoop()
         {
             Window.Title = "Art Project";
@@ -55,19 +63,16 @@ namespace ArtProject
 
         protected override void Initialize()
         {
-            texture = new Color[0, 0];
-            current = new Color[0, 0];
-
+            // setup user interface 
             guiRenderer = new ImGuiRenderer(this);
             guiRenderer.RebuildFontAtlas();
 
+            // setup texture manager
             inputHandler = new Input(Keyboard.GetState(), Mouse.GetState(), new Dictionary<object, int>() {
-                { "save", (int)Keys.S },
-                { "process", (int)Keys.P },
-                { "iterate", (int)Keys.I },
-                { "above", (int)Keys.A },
-                { "reverse", (int)Keys.R },
+                { "exit", (int)Keys.Escape },
                 { "open", (int)Keys.O },
+                { "save", (int)Keys.S },
+                { "reset", (int)Keys.R },
             });
 
             base.Initialize();
@@ -76,45 +81,31 @@ namespace ArtProject
         protected override void LoadContent()
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            guiRenderer.BindTexture(new Texture2D(GraphicsDevice, 
+
+            guiRenderer.BindTexture(new Texture2D(GraphicsDevice,
                 GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width,
                 GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height));
-
-            render = new Texture2D(GraphicsDevice, 1, 1);
         }
 
         protected override void Update(GameTime gameTime)
         {
+            // update the input manager
             inputHandler.Update(Keyboard.GetState(), Mouse.GetState());
 
-            if (inputHandler.keyboardState.IsKeyDown(Keys.Escape)) Exit();
-            if (inputHandler.OnBindingPressed("process")) process = true;
-            if (inputHandler.OnBindingPressed("iterate")) iterate = true;
-            if (inputHandler.OnBindingPressed("save")) save = true;
+            // check inputs
+            if (inputHandler.OnBindingPressed("exit")) Exit();
             if (inputHandler.OnBindingPressed("open")) open = true;
-            if (inputHandler.OnBindingPressed("above")) above = !above;
-            if (inputHandler.OnBindingPressed("reverse")) reverse = !reverse;
+            if (inputHandler.OnBindingPressed("save")) save = true;
+            if (inputHandler.OnBindingPressed("reset")) reset = true;
 
-            if (process)
+            // complete tasks
+            if (open)
             {
-                current = (Color[,])texture.Clone();
-                Processors.QueueStackPixelSort(ref current, Processors.GetSortQueue(current, wrap, above), reverse);
-            }
-            else if (iterate)
-            {
-                current = (Color[,])texture.Clone();
-                queue = Processors.GetSortQueue(current, wrap, above);
-            }
-            else if (save)
-            {
-                render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
-            }
-            else if(open)
-            {
+                // defocus window
                 Window.IsBorderless = false;
 
-                // get texture
-                OpenFileDialog ofd = new OpenFileDialog
+                // get texture from filesystem ("render" is just used for temporary purposes, it gets overwritten immediately after)
+                var ofd = new OpenFileDialog
                 {
                     FileName = "Image",
                     InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
@@ -123,34 +114,53 @@ namespace ArtProject
                 if (ofd.ShowDialog() == true)
                     using (FileStream stream = new FileStream(ofd.FileName, FileMode.Open))
                         render = Texture2D.FromStream(GraphicsDevice, stream);
-                else throw new Exception("Nothing selected");
+                else render = new Texture2D(GraphicsDevice, 10, 10);
 
-                // init maps
-                texture = new Color[render.Width, render.Height];
+                // set texture maps
+                original = new Color[render.Width, render.Height];
                 var array = new Color[render.Width * render.Height];
                 render.GetData(array);
                 for (int i = 0; i < array.Length; i++)
-                    texture[i / render.Height, i % render.Height] = array[i];
+                    original[i % render.Width, i / render.Width] = array[i];
 
-                current = (Color[,])texture.Clone();
+                texture = (Color[,])original.Clone();
                 open = false;
 
+                // focus window
                 Window.IsBorderless = true;
             }
+            else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
+            else if (reset) texture = (Color[,])original.Clone();
 
-            if (queue.Count > 0)
-            {
-                Processors.ArrayPixelSort(ref current, queue.Dequeue(), y, reverse);
-                y++;
-            }
-            else y = 0;
+            else if (scramble) Processors.TextureScramble(ref texture);
+            else if (descramble) Processors.TextureDescramble(ref texture);
+            else if (pixelsort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
+            else if (coloursplit) Processors.ColorSplit(ref texture, split);
 
-            // current -> render
+            //var width = current.GetLength(0);
+            //var height = current.GetLength(1);
+
+            //var map = Procedural.Perlin2D.CompileOctaves(width, height,
+            //    //Procedural.GenerateNoiseMap(0.5f, width / 16, height / 16, Environment.TickCount),
+            //    //Procedural.GenerateNoiseMap(0.25f, width / 8, height / 8, Environment.TickCount),
+            //    Procedural.GenerateNoiseMap(1f, (int)((width + 4) / 4f), (int)((height + 4) / 4f), Environment.TickCount));
+            //////map = Procedural.Perlin2D.BillinearFilter(map, 0.1f);
+            //for (int x = 0; x < width; x++)
+            //    for (int y = 0; y < height; y++)
+            //    {
+            //        var hsv = current[x, y].ToHSV();
+            //        // TODO: text V
+            //        hsv.V += (map[x, y] - 0.5f)/4;
+            //        //current[x, y] = new Color(map[x, y], map[x, y], map[x, y]); // hsv.ToRGB();
+            //    }
+
+
+            // processing texture -> render texture
             {
                 var array = new Color[render.Width * render.Height];
                 for (int x = 0; x < render.Width; x++)
                     for (int y = 0; y < render.Height; y++)
-                        array[x * render.Height + y] = current[x, y];
+                        array[x + y * render.Width] = texture[x, y];
                 render.SetData(array);
             }
 
@@ -162,10 +172,10 @@ namespace ArtProject
             GraphicsDevice.Clear(Color.Black);
 
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
-            spriteBatch.Draw(render, Vector2.Zero, null, Color.White, 0f, Vector2.Zero, 
+            spriteBatch.Draw(render, Vector2.Zero, null, Color.White, 0f, Vector2.Zero,
                 Math.Min(1f, Math.Min(
                     (float)GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width / render.Width,
-                    (float)GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height / render.Height)), 
+                    (float)GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height / render.Height)),
                 SpriteEffects.None, 0f);
             spriteBatch.End();
 
@@ -180,18 +190,34 @@ namespace ArtProject
         {
             if (!inputHandler.keyboardState.IsKeyDown(Keys.D))
             {
-                ImGui.Begin("Debug", ImGuiWindowFlags.MenuBar);
+                ImGui.Begin("Processors");
 
-                ImGui.SliderFloat("Wrap value", ref wrap, 0f, 1f);
-                ImGui.Checkbox("Above [A]", ref above);
-                ImGui.Checkbox("Reverse [R]", ref reverse);
-
-                ImGui.Separator();
-
-                process = ImGui.Button("Process [P]");
-                iterate = ImGui.Button("Continuous Process [I]");
+                ImGui.Text("File:");
+                ImGui.Indent();
                 open = ImGui.Button("Open [O]");
                 save = ImGui.Button("Save [S]");
+                if (ImGui.Button("Exit [Esc]")) Exit();
+                ImGui.Unindent();
+                ImGui.Separator();
+
+                ImGui.Text("Processing:");
+                ImGui.Indent();
+                reset = ImGui.Button("Reset [R]");
+                scramble = ImGui.Button("Scramble");
+                descramble = ImGui.Button("Descramble");
+
+                pixelsort = ImGui.Button("Pixel Sort");
+                ImGui.Indent();
+                ImGui.SliderFloat("Wrap", ref wrap, 0f, 1f);
+                ImGui.Checkbox("Above", ref above);
+                ImGui.Checkbox("Reverse", ref reverse);
+                ImGui.Unindent();
+
+                coloursplit = ImGui.Button("Colour Split");
+                ImGui.Indent();
+                ImGui.InputInt("Split", ref split);
+                ImGui.Unindent();
+                ImGui.Unindent();
 
                 ImGui.End();
             }
