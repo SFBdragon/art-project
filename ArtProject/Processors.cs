@@ -114,7 +114,7 @@ namespace ArtProject
             texture = returns;
         }
 
-        public static Color[,] TextureScramble(Color[,] texture)
+        public static void TextureScramble(ref Color[,] texture)
         {
             // cache width and height
             var width = texture.GetLength(0);
@@ -127,14 +127,11 @@ namespace ArtProject
                     array[x + y * width] = texture[x, y];
 
             // set data back into a 2d array (correctly, to retain the scramble)
-            var returns = new Color[width, height];
             for (int i = 0; i < width * height; i++)
-                returns[i % width, i / width] = array[i];
-
-            return returns;
+                texture[i / height, i % height] = array[i];
         }
 
-        public static Color[,] TextureDescramble(Color[,] texture)
+        public static void TextureDescramble(ref Color[,] texture)
         {
             // cache width and height
             var width = texture.GetLength(0);
@@ -144,14 +141,11 @@ namespace ArtProject
             var array = new Color[width * height];
             for (int x = 0; x < width; x++)
                 for (int y = 0; y < height; y++)
-                    array[x + y * width] = texture[x, y];
+                    array[x * height + y] = texture[x, y];
 
             // set data back into a 2d array (correctly, to retain the descramble)
-            var returns = new Color[width, height];
             for (int i = 0; i < width * height; i++)
-                returns[i % width, i / width] = array[i];
-
-            return returns;
+                texture[i % width, i / width] = array[i];
         }
     }
 }
