@@ -106,15 +106,18 @@ namespace ArtProject
             if (process)
             {
                 current = (Color[,])texture.Clone();
+                current = Processors.TextureScramble(current);
                 Processors.QueueStackPixelSort(ref current, Processors.GetSortQueue(current, wrap, above), reverse);
                 Processors.ColorSplit(ref current, split);
+                current = Processors.TextureDescramble(current);
+
 
                 var width = current.GetLength(0);
                 var height = current.GetLength(1);
                 var map = Procedural.Perlin2D.CompileOctaves(width, height,
                     //Procedural.GenerateNoiseMap(0.5f, width / 16, height / 16, Environment.TickCount),
                     //Procedural.GenerateNoiseMap(0.25f, width / 8, height / 8, Environment.TickCount),
-                    Procedural.GenerateNoiseMap(1f, width / 4, height / 4, Environment.TickCount));
+                    Procedural.GenerateNoiseMap(1f, (int)((width + 4) / 4f), (int)((height + 4) / 4f), Environment.TickCount));
                 ////map = Procedural.Perlin2D.BillinearFilter(map, 0.1f);
                 for (int x = 0; x < width; x++)
                     for (int y = 0; y < height; y++)
@@ -122,7 +125,7 @@ namespace ArtProject
                         var hsv = current[x, y].ToHSV();
                         // TODO: text V
                         hsv.V += (map[x, y] - 0.5f)/4;
-                        current[x, y] = new Color(map[x, y], map[x, y], map[x, y]); // hsv.ToRGB();
+                        //current[x, y] = new Color(map[x, y], map[x, y], map[x, y]); // hsv.ToRGB();
                     }
             }
             else if (iterate)
@@ -155,7 +158,7 @@ namespace ArtProject
                 var array = new Color[render.Width * render.Height];
                 render.GetData(array);
                 for (int i = 0; i < array.Length; i++)
-                    texture[i / render.Height, i % render.Height] = array[i];
+                    texture[i % render.Width, i / render.Width] = array[i];
 
                 current = (Color[,])texture.Clone();
                 open = false;
@@ -175,7 +178,7 @@ namespace ArtProject
                 var array = new Color[render.Width * render.Height];
                 for (int x = 0; x < render.Width; x++)
                     for (int y = 0; y < render.Height; y++)
-                        array[x * render.Height + y] = current[x, y];
+                        array[x + y * render.Width] = current[x, y];
                 render.SetData(array);
             }
 
