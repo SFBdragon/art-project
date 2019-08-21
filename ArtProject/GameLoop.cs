@@ -131,6 +131,9 @@ namespace ArtProject
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
             else if (reset) texture = (Color[,])original.Clone();
+
+            // TODO: pixelation
+
             else if (modify_brightness)
             {
                 // cache dimensions
