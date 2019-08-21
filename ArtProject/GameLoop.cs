@@ -30,6 +30,11 @@ namespace ArtProject
         private bool open = true;
         private bool save = false;
 
+        private bool modify_brightness = false;
+        private string seed = "default";
+        private float billinear_lerp = .1f;
+        private int billinear_iterations = 0;
+
         private bool reset = true;
         private bool scramble = false;
         private bool descramble = false;
@@ -40,7 +45,7 @@ namespace ArtProject
         private bool colour_split = false;
         private int split = 0;
         private bool greyscale = false;
-        private string seed = "default";
+
 
         // constructor
         public GameLoop()
@@ -71,10 +76,7 @@ namespace ArtProject
 
             // setup texture manager
             inputHandler = new Input(Keyboard.GetState(), Mouse.GetState(), new Dictionary<object, int>() {
-                { "exit", (int)Keys.Escape },
-                { "open", (int)Keys.O },
-                { "save", (int)Keys.S },
-                { "reset", (int)Keys.R },
+                { "exit", (int)Keys.Escape }
             });
 
             base.Initialize();
@@ -93,12 +95,8 @@ namespace ArtProject
         {
             // update the input manager
             inputHandler.Update(Keyboard.GetState(), Mouse.GetState());
-
             // check inputs
             if (inputHandler.OnBindingPressed("exit")) Exit();
-            if (inputHandler.OnBindingPressed("open")) open = true;
-            if (inputHandler.OnBindingPressed("save")) save = true;
-            if (inputHandler.OnBindingPressed("reset")) reset = true;
 
             // complete tasks
             if (open)
@@ -133,6 +131,33 @@ namespace ArtProject
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
             else if (reset) texture = (Color[,])original.Clone();
+            else if (modify_brightness)
+            {
+                // cache dimensions
+                var width = texture.GetLength(0);
+                var height = texture.GetLength(1);
+
+                // generate an unfiltered noisemap
+                var map = Procedural.Perlin2D.CompileOctaves(width, height,
+                    Procedural.GenerateNoiseMap(.5f, (width + 63) / 64, (height + 63) / 64, seed.GetHashCode())
+                    , Procedural.GenerateNoiseMap(.5f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
+                    //, Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
+                    //, Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
+                    );
+
+                // filter billinearly
+                for (int i = 0; i < billinear_iterations; i++)
+                    map = Procedural.Perlin2D.BillinearFilter(map, billinear_lerp);
+
+                // overwrite 'value' parameters with generated
+                for (int x = 0; x < width; x++)
+                    for (int y = 0; y < height; y++)
+                    {
+                        var t = texture[x, y].ToHSV();
+                        t.V = map[x, y];
+                        texture[x, y] = t.ToRGB();
+                    }
+            }
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
@@ -148,16 +173,6 @@ namespace ArtProject
                         texture[x, y].G = avrg;
                         texture[x, y].B = avrg;
                     }
-            }
-
-            {
-                var width = texture.GetLength(0);
-                var height = texture.GetLength(1);
-                var map = Procedural.Perlin2D.CompileOctaves(width, height,
-                    Procedural.GenerateNoiseMap(.5f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode()),
-                    Procedural.GenerateNoiseMap
-
-                    );
             }
 
             // processing texture -> render texture
@@ -199,16 +214,21 @@ namespace ArtProject
 
                 ImGui.Text("File:");
                 ImGui.Indent();
-                open = ImGui.Button("Open [O]");
-                save = ImGui.Button("Save [S]");
+                open = ImGui.Button("Open");
+                save = ImGui.Button("Save");
                 if (ImGui.Button("Exit [Esc]")) Exit();
                 ImGui.Unindent();
                 ImGui.Separator();
 
+                modify_brightness = ImGui.Button("Modify brightness map");
+                ImGui.InputText("Seed", ref seed, 15);
+                ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
+                ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
+                ImGui.Separator();
+
                 ImGui.Text("Processing:");
                 ImGui.Indent();
-                ImGui.InputText("Seed", ref seed, 15);
-                reset = ImGui.Button("Reset [R]");
+                reset = ImGui.Button("Reset");
                 scramble = ImGui.Button("Scramble");
                 descramble = ImGui.Button("Descramble");
 
