@@ -33,12 +33,14 @@ namespace ArtProject
         private bool reset = true;
         private bool scramble = false;
         private bool descramble = false;
-        private bool pixelsort = false;
+        private bool pixel_sort = false;
         private float wrap = 0.5f;
         private bool above = false;
         private bool reverse = false;
-        private bool coloursplit = false;
+        private bool colour_split = false;
         private int split = 0;
+        private bool greyscale = false;
+        private string seed = "default";
 
         // constructor
         public GameLoop()
@@ -131,29 +133,32 @@ namespace ArtProject
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
             else if (reset) texture = (Color[,])original.Clone();
-
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
-            else if (pixelsort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
-            else if (coloursplit) Processors.ColorSplit(ref texture, split);
+            else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
+            else if (colour_split) Processors.ColorSplit(ref texture, split);
+            else if (greyscale)
+            {
+                for (int x = 0; x < texture.GetLength(0); x++)
+                    for (int y = 0; y < texture.GetLength(1); y++)
+                    {
+                        var color = texture[x, y];
+                        var avrg = (byte)((color.R + color.G + color.B) / 3f);
+                        texture[x, y].R = avrg;
+                        texture[x, y].G = avrg;
+                        texture[x, y].B = avrg;
+                    }
+            }
 
-            //var width = current.GetLength(0);
-            //var height = current.GetLength(1);
+            {
+                var width = texture.GetLength(0);
+                var height = texture.GetLength(1);
+                var map = Procedural.Perlin2D.CompileOctaves(width, height,
+                    Procedural.GenerateNoiseMap(.5f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode()),
+                    Procedural.GenerateNoiseMap
 
-            //var map = Procedural.Perlin2D.CompileOctaves(width, height,
-            //    //Procedural.GenerateNoiseMap(0.5f, width / 16, height / 16, Environment.TickCount),
-            //    //Procedural.GenerateNoiseMap(0.25f, width / 8, height / 8, Environment.TickCount),
-            //    Procedural.GenerateNoiseMap(1f, (int)((width + 4) / 4f), (int)((height + 4) / 4f), Environment.TickCount));
-            //////map = Procedural.Perlin2D.BillinearFilter(map, 0.1f);
-            //for (int x = 0; x < width; x++)
-            //    for (int y = 0; y < height; y++)
-            //    {
-            //        var hsv = current[x, y].ToHSV();
-            //        // TODO: text V
-            //        hsv.V += (map[x, y] - 0.5f)/4;
-            //        //current[x, y] = new Color(map[x, y], map[x, y], map[x, y]); // hsv.ToRGB();
-            //    }
-
+                    );
+            }
 
             // processing texture -> render texture
             {
@@ -202,22 +207,24 @@ namespace ArtProject
 
                 ImGui.Text("Processing:");
                 ImGui.Indent();
+                ImGui.InputText("Seed", ref seed, 15);
                 reset = ImGui.Button("Reset [R]");
                 scramble = ImGui.Button("Scramble");
                 descramble = ImGui.Button("Descramble");
 
-                pixelsort = ImGui.Button("Pixel Sort");
+                pixel_sort = ImGui.Button("Pixel Sort");
                 ImGui.Indent();
                 ImGui.SliderFloat("Wrap", ref wrap, 0f, 1f);
                 ImGui.Checkbox("Above", ref above);
                 ImGui.Checkbox("Reverse", ref reverse);
                 ImGui.Unindent();
 
-                coloursplit = ImGui.Button("Colour Split");
+                colour_split = ImGui.Button("Colour Split");
                 ImGui.Indent();
                 ImGui.InputInt("Split", ref split);
                 ImGui.Unindent();
-                ImGui.Unindent();
+
+                greyscale = ImGui.Button("Greyscale");
 
                 ImGui.End();
             }
