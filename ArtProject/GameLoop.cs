@@ -100,9 +100,8 @@ namespace ArtProject
             // check inputs
             if (inputHandler.OnBindingPressed("exit")) Exit();
 
-
             // complete tasks
-            if (open)
+            else if (open)
             {
                 // defocus window
                 Window.IsBorderless = false;
@@ -135,33 +134,6 @@ namespace ArtProject
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
             else if (reset) texture = (Color[,])original.Clone();
 
-            else if (modify_brightness)
-            {
-                // cache dimensions
-                var width = texture.GetLength(0);
-                var height = texture.GetLength(1);
-
-                // generate an unfiltered noisemap
-                var map = Procedural.Perlin2D.CompileOctaves(width, height,
-                    Procedural.GenerateNoiseMap(.5f, (width + 63) / 64, (height + 63) / 64, seed.GetHashCode())
-                    , Procedural.GenerateNoiseMap(.25f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
-                    , Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
-                    , Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
-                    );
-
-                // filter billinearly
-                for (int i = 0; i < billinear_iterations; i++)
-                    map = Procedural.Perlin2D.BillinearFilter(map, billinear_lerp);
-
-                // overwrite 'value' parameters with generated
-                for (int x = 0; x < width; x++)
-                    for (int y = 0; y < height; y++)
-                    {
-                        var t = texture[x, y].ToHSV();
-                        t.V = map[x, y];
-                        texture[x, y] = t.ToRGB();
-                    }
-            }
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
@@ -225,12 +197,6 @@ namespace ArtProject
                 ImGui.Unindent();
                 ImGui.Separator();
 
-                //modify_brightness = ImGui.Button("Modify brightness map");
-                //ImGui.InputText("Seed", ref seed, 15);
-                //ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
-                //ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
-                //ImGui.Separator();
-
                 ImGui.Text("Processing:");
                 ImGui.Indent();
                 reset = ImGui.Button("Reset");
@@ -262,3 +228,38 @@ namespace ArtProject
         }
     }
 }
+
+//else if (modify_brightness)
+//{
+//    // cache dimensions
+//    var width = texture.GetLength(0);
+//    var height = texture.GetLength(1);
+
+//    // generate an unfiltered noisemap
+//    var map = Procedural.Perlin2D.CompileOctaves(width, height,
+//        Procedural.GenerateNoiseMap(.5f, (width + 63) / 64, (height + 63) / 64, seed.GetHashCode())
+//        , Procedural.GenerateNoiseMap(.25f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
+//        , Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
+//        , Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
+//        );
+
+//    // filter billinearly
+//    for (int i = 0; i < billinear_iterations; i++)
+//        map = Procedural.Perlin2D.BillinearFilter(map, billinear_lerp);
+
+//    // overwrite 'value' parameters with generated
+//    for (int x = 0; x < width; x++)
+//        for (int y = 0; y < height; y++)
+//        {
+//            var t = texture[x, y].ToHSV();
+//            t.V = map[x, y];
+//            texture[x, y] = t.ToRGB();
+//        }
+//}
+
+
+//modify_brightness = ImGui.Button("Modify brightness map");
+//ImGui.InputText("Seed", ref seed, 15);
+//ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
+//ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
+//ImGui.Separator();
