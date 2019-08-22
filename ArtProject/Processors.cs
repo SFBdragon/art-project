@@ -147,5 +147,34 @@ namespace ArtProject
             for (int i = 0; i < width * height; i++)
                 texture[i % width, i / width] = array[i];
         }
+
+        public static void Pixelate (ref Color[,] texture, int pixel_size)
+        {
+            var width = texture.GetLength(0);
+            var height = texture.GetLength(1);
+
+            for (int x = 0; x < width / pixel_size; x++)
+                for (int y = 0; y < height / pixel_size; y++)
+                {
+                    float sumR = 0;
+                    float sumG = 0;
+                    float sumB = 0;
+                    float sqre = pixel_size * pixel_size;
+                    for (int _x = 0; _x < pixel_size; _x++)
+                        for (int _y = 0; _y < pixel_size; _y++)
+                        {
+                            sumR += texture[x * pixel_size + _x, y * pixel_size + _y].R / sqre;
+                            sumG += texture[x * pixel_size + _x, y * pixel_size + _y].G / sqre;
+                            sumB += texture[x * pixel_size + _x, y * pixel_size + _y].B / sqre;
+                        }
+                    for (int _x = 0; _x < pixel_size; _x++)
+                        for (int _y = 0; _y < pixel_size; _y++)
+                        {
+                            texture[x * pixel_size + _x, y * pixel_size + _y].R = (byte)sumR;
+                            texture[x * pixel_size + _x, y * pixel_size + _y].G = (byte)sumG;
+                            texture[x * pixel_size + _x, y * pixel_size + _y].B = (byte)sumB;
+                        }
+                }
+        }
     }
 }

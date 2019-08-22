@@ -44,6 +44,8 @@ namespace ArtProject
         private bool reverse = false;
         private bool colour_split = false;
         private int split = 0;
+        private bool pixelate = false;
+        private int pixel_size = 1;
         private bool greyscale = false;
 
 
@@ -98,6 +100,7 @@ namespace ArtProject
             // check inputs
             if (inputHandler.OnBindingPressed("exit")) Exit();
 
+
             // complete tasks
             if (open)
             {
@@ -132,8 +135,6 @@ namespace ArtProject
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
             else if (reset) texture = (Color[,])original.Clone();
 
-            // TODO: pixelation
-
             else if (modify_brightness)
             {
                 // cache dimensions
@@ -143,9 +144,9 @@ namespace ArtProject
                 // generate an unfiltered noisemap
                 var map = Procedural.Perlin2D.CompileOctaves(width, height,
                     Procedural.GenerateNoiseMap(.5f, (width + 63) / 64, (height + 63) / 64, seed.GetHashCode())
-                    , Procedural.GenerateNoiseMap(.5f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
-                    //, Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
-                    //, Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
+                    , Procedural.GenerateNoiseMap(.25f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
+                    , Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
+                    , Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
                     );
 
                 // filter billinearly
@@ -164,6 +165,7 @@ namespace ArtProject
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
+            else if (pixelate) Processors.Pixelate(ref texture, pixel_size);
             else if (colour_split) Processors.ColorSplit(ref texture, split);
             else if (greyscale)
             {
@@ -223,11 +225,11 @@ namespace ArtProject
                 ImGui.Unindent();
                 ImGui.Separator();
 
-                modify_brightness = ImGui.Button("Modify brightness map");
-                ImGui.InputText("Seed", ref seed, 15);
-                ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
-                ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
-                ImGui.Separator();
+                //modify_brightness = ImGui.Button("Modify brightness map");
+                //ImGui.InputText("Seed", ref seed, 15);
+                //ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
+                //ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
+                //ImGui.Separator();
 
                 ImGui.Text("Processing:");
                 ImGui.Indent();
@@ -241,6 +243,12 @@ namespace ArtProject
                 ImGui.Checkbox("Above", ref above);
                 ImGui.Checkbox("Reverse", ref reverse);
                 ImGui.Unindent();
+
+                pixelate = ImGui.Button("Pixelate");
+                ImGui.Indent();
+                ImGui.InputInt("Pixel size", ref pixel_size);
+                ImGui.Unindent();
+                pixel_size = ExtendedMath.Clamp(pixel_size, 1, texture.GetLength(1) - 1);
 
                 colour_split = ImGui.Button("Colour Split");
                 ImGui.Indent();
