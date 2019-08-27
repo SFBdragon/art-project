@@ -14,7 +14,7 @@ namespace ArtProject
     public class GameLoop : Game
     {
         // library managers
-        GraphicsDeviceManager graphics;
+        readonly GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
         // managers
@@ -30,11 +30,6 @@ namespace ArtProject
         private bool open = true;
         private bool save = false;
 
-        private bool modify_brightness = false;
-        private string seed = "default";
-        private float billinear_lerp = .1f;
-        private int billinear_iterations = 0;
-
         private bool reset = true;
         private bool scramble = false;
         private bool descramble = false;
@@ -47,7 +42,6 @@ namespace ArtProject
         private bool pixelate = false;
         private int pixel_size = 1;
         private bool greyscale = false;
-
 
         // constructor
         public GameLoop()
@@ -139,6 +133,7 @@ namespace ArtProject
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
             else if (pixelate) Processors.Pixelate(ref texture, pixel_size);
             else if (colour_split) Processors.ColorSplit(ref texture, split);
+            // TODO: colour flooring
             else if (greyscale)
             {
                 for (int x = 0; x < texture.GetLength(0); x++)
@@ -263,3 +258,8 @@ namespace ArtProject
 //ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
 //ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
 //ImGui.Separator();
+
+//private bool modify_brightness = false;
+//private string seed = "default";
+//private float billinear_lerp = .1f;
+//private int billinear_iterations = 0;
