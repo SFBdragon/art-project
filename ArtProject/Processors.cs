@@ -8,16 +8,6 @@ namespace ArtProject
 {
     public static class Processors
     {
-        public static Stack<Vector2> IterateAngles(Vector2[] lsAngleLength, float iterateInRadians)
-        {
-            for (int i = 0; i < lsAngleLength.Length; i++)
-                lsAngleLength[i].X += iterateInRadians;
-            var returns = new Stack<Vector2>();
-            foreach (Vector2 i in lsAngleLength)
-                returns.Push(new Vector2((float)Math.Cos(i.X) * i.Y, (float)Math.Sin(i.X) * i.Y));
-            return returns;
-        }
-
         /// <summary>
         /// Each Point[] corresponds to its Y position
         /// </summary>
@@ -148,7 +138,7 @@ namespace ArtProject
                 texture[i % width, i / width] = array[i];
         }
 
-        public static void Pixelate (ref Color[,] texture, int pixel_size)
+        public static void Pixelate(ref Color[,] texture, int pixel_size)
         {
             var width = texture.GetLength(0);
             var height = texture.GetLength(1);
@@ -175,6 +165,25 @@ namespace ArtProject
                             texture[x * pixel_size + _x, y * pixel_size + _y].B = (byte)sumB;
                         }
                 }
+        }
+
+        public static void ColorFloor(ref Color[,] texture, byte shift)
+        {   
+            // for every pixel
+            for (int x = 0; x < texture.GetLength(0); x++)
+            {
+                for (int y = 0; y < texture.GetLength(1); y++)
+                {
+                    // grab the colour
+                    var colour = texture[x, y];
+                    // bitshift
+                    colour.R = (byte)((colour.R >> shift) << shift);
+                    colour.G = (byte)((colour.G >> shift) << shift);
+                    colour.B = (byte)((colour.B >> shift) << shift);
+                    // set the colour to the texture
+                    texture[x, y] = colour;
+                }
+            }
         }
     }
 }

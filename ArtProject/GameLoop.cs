@@ -42,6 +42,8 @@ namespace ArtProject
         private bool pixelate = false;
         private int pixel_size = 1;
         private bool greyscale = false;
+        private bool colour_shift_down = false;
+        private byte colour_shift_iterate = 0;
 
         // constructor
         public GameLoop()
@@ -121,19 +123,23 @@ namespace ArtProject
 
                 texture = (Color[,])original.Clone();
                 open = false;
+                colour_shift_iterate = 0;
 
                 // focus window
                 Window.IsBorderless = true;
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
-            else if (reset) texture = (Color[,])original.Clone();
+            else if (reset)
+            {
+                texture = (Color[,])original.Clone();
+                colour_shift_iterate = 0;
+            }
 
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
             else if (pixelate) Processors.Pixelate(ref texture, pixel_size);
             else if (colour_split) Processors.ColorSplit(ref texture, split);
-            // TODO: colour flooring
             else if (greyscale)
             {
                 for (int x = 0; x < texture.GetLength(0); x++)
@@ -145,6 +151,11 @@ namespace ArtProject
                         texture[x, y].G = avrg;
                         texture[x, y].B = avrg;
                     }
+            }
+            else if (colour_shift_down)
+            {
+                colour_shift_iterate++;
+                Processors.ColorFloor(ref texture, colour_shift_iterate);
             }
 
             // processing texture -> render texture
@@ -217,6 +228,13 @@ namespace ArtProject
                 ImGui.Unindent();
 
                 greyscale = ImGui.Button("Greyscale");
+
+                ImGui.Separator();
+
+                colour_shift_down = ImGui.Button("Floor colour by 1-bit");
+                ImGui.Indent();
+                ImGui.Text($"Colour quality: {8 - colour_shift_iterate}-bits");
+                ImGui.Unindent();
 
                 ImGui.End();
             }
