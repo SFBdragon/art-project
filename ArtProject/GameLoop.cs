@@ -4,10 +4,11 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Win32;
 using System;
 using System.IO;
-using System.Collections.Generic;
 using ImGuiNET;
 using ImGuiNET.XNA;
 using Extended.Generic;
+using Extended.Generic.Noise;
+using Newtonsoft.Json;
 
 namespace ArtProject
 {
@@ -16,9 +17,6 @@ namespace ArtProject
         // library managers
         readonly GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
-
-        // managers
-        private Input inputHandler;
         private ImGuiRenderer guiRenderer;
 
         // texture data
@@ -31,6 +29,14 @@ namespace ArtProject
         private bool save = false;
 
         private bool reset = true;
+
+        private int seed;
+        private bool open_profile = false;
+        private bool save_profile = false;
+        private bool generate_noise = false;
+        private NoiseProfile noise = new NoiseProfile();
+
+
         private bool scramble = false;
         private bool descramble = false;
         private bool pixel_sort = false;
@@ -38,7 +44,7 @@ namespace ArtProject
         private bool above = false;
         private bool reverse = false;
         private bool colour_split = false;
-        private int split = 0;
+        private int split = 0; 
         private bool pixelate = false;
         private int pixel_size = 1;
         private bool greyscale = false;
@@ -49,7 +55,7 @@ namespace ArtProject
         public GameLoop()
         {
             Window.Title = "Art Project";
-            Window.IsBorderless = true;
+            Window.IsBorderless = false;
             Window.AllowUserResizing = false;
 
             IsMouseVisible = true;
@@ -59,7 +65,7 @@ namespace ArtProject
             {
                 PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width,
                 PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height,
-                IsFullScreen = false,
+                IsFullScreen = true,
                 SynchronizeWithVerticalRetrace = false
             };
 
@@ -71,11 +77,6 @@ namespace ArtProject
             // setup user interface 
             guiRenderer = new ImGuiRenderer(this);
             guiRenderer.RebuildFontAtlas();
-
-            // setup texture manager
-            inputHandler = new Input(Keyboard.GetState(), Mouse.GetState(), new Dictionary<object, int>() {
-                { "exit", (int)Keys.Escape }
-            });
 
             base.Initialize();
         }
@@ -91,10 +92,8 @@ namespace ArtProject
 
         protected override void Update(GameTime gameTime)
         {
-            // update the input manager
-            inputHandler.Update(Keyboard.GetState(), Mouse.GetState());
-            // check inputs
-            if (inputHandler.OnBindingPressed("exit")) Exit();
+            // check to exit
+            if (Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
 
             // complete tasks
             else if (open)
@@ -107,7 +106,8 @@ namespace ArtProject
                 {
                     FileName = "Image",
                     InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-                    Filter = "Images|*.png;*.bmp;*jpeg;*jpg"
+                    Filter = "Images|*.png;*.bmp;*jpeg;*jpg",
+                    RestoreDirectory = true
                 };
                 if (ofd.ShowDialog() == true)
                     using (FileStream stream = new FileStream(ofd.FileName, FileMode.Open))
@@ -129,12 +129,61 @@ namespace ArtProject
                 Window.IsBorderless = true;
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
+
             else if (reset)
             {
                 texture = (Color[,])original.Clone();
                 colour_shift_iterate = 0;
             }
 
+            else if (generate_noise)
+            {
+                var _noise = D2.GenerateValueNoise(noise.Amplitude, 0f, noise.Persistance, (byte)noise.Octaves, (int)noise.WidthMulti, (int)noise.HeightMulti,
+                    noise.FilterLerp, (int)noise.FilterPasses, InterpType.Linear, noise.OctaveMulti, seed);
+                original = new Color[_noise.GetLength(0), _noise.GetLength(1)];
+                for (int x = 0; x < _noise.GetLength(0); x++)
+                    for (int y = 0; y < _noise.GetLength(1); y++)
+                        original[x, y] = Color.Lerp(noise.Zero, noise.One, _noise[x,y]);
+                texture = (Color[,])original.Clone();
+                render = new Texture2D(GraphicsDevice, _noise.GetLength(0), _noise.GetLength(1));
+            }
+            else if (open_profile)
+            {
+                // defocus homework
+                Window.IsBorderless = false;
+
+                var ofd = new OpenFileDialog
+                {
+                    FileName = "noise",
+                    RestoreDirectory = true,
+                    InitialDirectory = AppDomain.CurrentDomain.BaseDirectory,
+                    Filter = "Json files|*.json",
+                };
+                if (ofd.ShowDialog() == true)
+                    noise = JsonConvert.DeserializeObject<NoiseProfile>(File.ReadAllText(ofd.FileName));
+
+                // focus window
+                Window.IsBorderless = true;
+            }
+            else if (save_profile)
+            {
+                // defocus homework
+                Window.IsBorderless = false;
+
+                var sfd = new SaveFileDialog
+                {
+                    FileName = "noise",
+                    RestoreDirectory = true,
+                    InitialDirectory = AppDomain.CurrentDomain.BaseDirectory,
+                    DefaultExt = ".json",
+                    Filter = "JSON Files|*.json"
+                };
+                if (sfd.ShowDialog() == true)
+                    File.WriteAllText(sfd.FileName, JsonConvert.SerializeObject(noise));
+
+                // focus window
+                Window.IsBorderless = true;
+            }
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
@@ -191,21 +240,60 @@ namespace ArtProject
 
         public void GuiRender()
         {
-            if (!inputHandler.keyboardState.IsKeyDown(Keys.D))
+            if (!Keyboard.GetState().IsKeyDown(Keys.U))
             {
                 ImGui.Begin("Processors");
+                if (ImGui.Button("Exit [Esc]")) Exit();
 
                 ImGui.Text("File:");
                 ImGui.Indent();
                 open = ImGui.Button("Open");
                 save = ImGui.Button("Save");
-                if (ImGui.Button("Exit [Esc]")) Exit();
+                reset = ImGui.Button("Reset");
                 ImGui.Unindent();
                 ImGui.Separator();
 
-                ImGui.Text("Processing:");
+                ImGui.Text("Generate:");
+                generate_noise = ImGui.Button("Generate Noise");
+                open_profile = ImGui.Button("Open Profile");
+                save_profile = ImGui.Button("Save Profile");
                 ImGui.Indent();
-                reset = ImGui.Button("Reset");
+                ImGui.SliderInt("Seed", ref seed, 0, int.MaxValue);
+                var _vec3 = new System.Numerics.Vector3(noise.Zero.R/255f, noise.Zero.G/255f, noise.Zero.B/255f);
+                ImGui.ColorEdit3("First Colour", ref _vec3, ImGuiColorEditFlags.InputRGB);
+                noise.Zero = new Color(_vec3.X, _vec3.Y, _vec3.Z);
+                var __vec3 = new System.Numerics.Vector3(noise.One.R/255f, noise.One.G/255f, noise.One.B/255f);
+                ImGui.ColorEdit3("Last Colour", ref __vec3, ImGuiColorEditFlags.InputRGB);
+                noise.One = new Color(__vec3.X, __vec3.Y, __vec3.Z);
+
+                ImGui.SliderFloat("Amplitude", ref noise.Amplitude, 0f, 1f);
+                ImGui.SliderFloat("Persistence", ref noise.Persistance, 0f, 1f);
+                ImGui.SliderFloat("Bilinear Lerp", ref noise.FilterLerp, 0f, 1f);
+                int temp = (int)noise.FilterPasses;
+                ImGui.InputInt("Bilinear Passes", ref temp);
+                noise.FilterPasses = temp < 0 ? 0 : (uint)temp;
+
+                ImGui.Text($"Width = 2^octaves * width * multi = {Math.Pow(2, noise.Octaves) * noise.WidthMulti * noise.OctaveMulti}");
+                ImGui.Text($"Width = 2^octaves * height * multi = {Math.Pow(2, noise.Octaves) * noise.HeightMulti * noise.OctaveMulti}");
+
+                temp = noise.Octaves;
+                ImGui.InputInt("Octave Count", ref temp);
+                noise.Octaves = temp < 1 ? (byte)1 : (byte)temp;
+                temp = (int)noise.OctaveMulti;
+                ImGui.InputInt("Octave interpolation stretch", ref temp);
+                noise.OctaveMulti = temp < 1 ? 1 : (uint)temp;
+                temp = (int)noise.WidthMulti;
+                ImGui.InputInt("Width", ref temp);
+                noise.WidthMulti = temp < 1 ? 1 : (uint)temp;
+                temp = (int)noise.HeightMulti;
+                ImGui.InputInt("Height", ref temp);
+                noise.HeightMulti = temp < 1 ? 1 : (uint)temp;
+
+                ImGui.Unindent();
+                ImGui.Separator();
+
+                ImGui.Text("Process:");
+                ImGui.Indent();
                 scramble = ImGui.Button("Scramble");
                 descramble = ImGui.Button("Descramble");
 
@@ -220,7 +308,7 @@ namespace ArtProject
                 ImGui.Indent();
                 ImGui.InputInt("Pixel size", ref pixel_size);
                 ImGui.Unindent();
-                pixel_size = ExtendedMath.Clamp(pixel_size, 1, texture.GetLength(1) - 1);
+                pixel_size = MathExtended.Clamp(pixel_size, 1, texture.GetLength(1) - 1);
 
                 colour_split = ImGui.Button("Colour Split");
                 ImGui.Indent();
@@ -228,8 +316,6 @@ namespace ArtProject
                 ImGui.Unindent();
 
                 greyscale = ImGui.Button("Greyscale");
-
-                ImGui.Separator();
 
                 colour_shift_down = ImGui.Button("Floor colour by 1-bit");
                 ImGui.Indent();
@@ -239,45 +325,21 @@ namespace ArtProject
                 ImGui.End();
             }
         }
+
+        [Serializable]
+        struct NoiseProfile
+        {
+            public float Amplitude;
+            public float Persistance;
+            public byte Octaves;
+            public uint WidthMulti;
+            public uint HeightMulti;
+            public uint OctaveMulti;
+            public float FilterLerp;
+            public uint FilterPasses;
+
+            public Color Zero;
+            public Color One;
+        }
     }
 }
-
-//else if (modify_brightness)
-//{
-//    // cache dimensions
-//    var width = texture.GetLength(0);
-//    var height = texture.GetLength(1);
-
-//    // generate an unfiltered noisemap
-//    var map = Procedural.Perlin2D.CompileOctaves(width, height,
-//        Procedural.GenerateNoiseMap(.5f, (width + 63) / 64, (height + 63) / 64, seed.GetHashCode())
-//        , Procedural.GenerateNoiseMap(.25f, (width + 15) / 16, (height + 15) / 16, seed.GetHashCode() + 42)
-//        , Procedural.GenerateNoiseMap(.125f, (width + 3) / 4, (height + 3) / 4, seed.GetHashCode() + "42".GetHashCode())
-//        , Procedural.GenerateNoiseMap(.75f, width, height, seed.GetHashCode() + 42.0.GetHashCode())
-//        );
-
-//    // filter billinearly
-//    for (int i = 0; i < billinear_iterations; i++)
-//        map = Procedural.Perlin2D.BillinearFilter(map, billinear_lerp);
-
-//    // overwrite 'value' parameters with generated
-//    for (int x = 0; x < width; x++)
-//        for (int y = 0; y < height; y++)
-//        {
-//            var t = texture[x, y].ToHSV();
-//            t.V = map[x, y];
-//            texture[x, y] = t.ToRGB();
-//        }
-//}
-
-
-//modify_brightness = ImGui.Button("Modify brightness map");
-//ImGui.InputText("Seed", ref seed, 15);
-//ImGui.InputInt("Billinear Iterations", ref billinear_iterations);
-//ImGui.InputFloat("Billinear Lerp", ref billinear_lerp);
-//ImGui.Separator();
-
-//private bool modify_brightness = false;
-//private string seed = "default";
-//private float billinear_lerp = .1f;
-//private int billinear_iterations = 0;

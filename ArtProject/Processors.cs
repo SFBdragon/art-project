@@ -95,9 +95,9 @@ namespace ArtProject
                 for (int y = 0; y < height; y++)
                 {
                     var color = texture[x, y];
-                    returns[ExtendedMath.Modulus(x - distance, width), y].R = color.R;
-                    returns[x, ExtendedMath.Modulus(y - distance, height)].G = color.G;
-                    returns[ExtendedMath.Modulus(x + distance, width), ExtendedMath.Modulus(y + distance, height)].B = color.B;
+                    returns[MathExtended.Modulo(x - distance, width), y].R = color.R;
+                    returns[x, MathExtended.Modulo(y - distance, height)].G = color.G;
+                    returns[MathExtended.Modulo(x + distance, width), MathExtended.Modulo(y + distance, height)].B = color.B;
                     returns[x, y].A = color.A;
                 }
             }
