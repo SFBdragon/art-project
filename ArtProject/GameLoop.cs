@@ -31,11 +31,23 @@ namespace ArtProject
         private bool reset = true;
 
         private int seed;
+        private bool diarrhea_christmas_lights = false;
         private bool open_profile = false;
         private bool save_profile = false;
         private bool generate_noise = false;
-        private NoiseProfile noise = new NoiseProfile();
-
+        private NoiseProfile noise = new NoiseProfile()
+        {
+            Amplitude = 1,
+            FilterLerp = 0.5f,
+            FilterPasses = 0,
+            Zero = Color.Black,
+            One = Color.White,
+            Persistance = 0.5f,
+            Octaves = 6,
+            OctaveMulti = 2,
+            WidthMulti = 5,
+            HeightMulti = 3,
+        };
 
         private bool scramble = false;
         private bool descramble = false;
@@ -50,12 +62,18 @@ namespace ArtProject
         private bool greyscale = false;
         private bool colour_shift_down = false;
         private byte colour_shift_iterate = 0;
+        private bool filter = false;
+        private float lerp = 0.5f;
 
         // constructor
         public GameLoop()
         {
             Window.Title = "Art Project";
+#if DEBUG
+            Window.IsBorderless = true;
+#else
             Window.IsBorderless = false;
+#endif
             Window.AllowUserResizing = false;
 
             IsMouseVisible = true;
@@ -65,7 +83,11 @@ namespace ArtProject
             {
                 PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width,
                 PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height,
+#if DEBUG
+                IsFullScreen = false,
+#else
                 IsFullScreen = true,
+#endif
                 SynchronizeWithVerticalRetrace = false
             };
 
@@ -146,10 +168,22 @@ namespace ArtProject
                         original[x, y] = Color.Lerp(noise.Zero, noise.One, _noise[x,y]);
                 texture = (Color[,])original.Clone();
                 render = new Texture2D(GraphicsDevice, _noise.GetLength(0), _noise.GetLength(1));
+                colour_shift_iterate = 0;
+            }
+            else if (diarrhea_christmas_lights)
+            {
+                var _noise = D2.GenerateValueNoise(noise.Amplitude, 0f, noise.Persistance, (byte)noise.Octaves, (int)noise.WidthMulti, (int)noise.HeightMulti,
+                    noise.FilterLerp, (int)noise.FilterPasses, InterpType.Linear, noise.OctaveMulti, seed);
+                original = new Color[_noise.GetLength(0), _noise.GetLength(1)];
+                for (int x = 0; x < _noise.GetLength(0); x++)
+                    for (int y = 0; y < _noise.GetLength(1); y++)
+                        original[x, y] = new ColorHSV(_noise[x, y], _noise[x, y], _noise[x, y]).ToRGB();
+                texture = (Color[,])original.Clone();
+                render = new Texture2D(GraphicsDevice, _noise.GetLength(0), _noise.GetLength(1));
             }
             else if (open_profile)
             {
-                // defocus homework
+                // defocus window
                 Window.IsBorderless = false;
 
                 var ofd = new OpenFileDialog
@@ -206,6 +240,7 @@ namespace ArtProject
                 colour_shift_iterate++;
                 Processors.ColorFloor(ref texture, colour_shift_iterate);
             }
+            // TODO: Filter call implement
 
             // processing texture -> render texture
             {
@@ -253,43 +288,46 @@ namespace ArtProject
                 ImGui.Unindent();
                 ImGui.Separator();
 
-                ImGui.Text("Generate:");
-                generate_noise = ImGui.Button("Generate Noise");
-                open_profile = ImGui.Button("Open Profile");
-                save_profile = ImGui.Button("Save Profile");
-                ImGui.Indent();
-                ImGui.SliderInt("Seed", ref seed, 0, int.MaxValue);
-                var _vec3 = new System.Numerics.Vector3(noise.Zero.R/255f, noise.Zero.G/255f, noise.Zero.B/255f);
-                ImGui.ColorEdit3("First Colour", ref _vec3, ImGuiColorEditFlags.InputRGB);
-                noise.Zero = new Color(_vec3.X, _vec3.Y, _vec3.Z);
-                var __vec3 = new System.Numerics.Vector3(noise.One.R/255f, noise.One.G/255f, noise.One.B/255f);
-                ImGui.ColorEdit3("Last Colour", ref __vec3, ImGuiColorEditFlags.InputRGB);
-                noise.One = new Color(__vec3.X, __vec3.Y, __vec3.Z);
+                if (ImGui.CollapsingHeader("Generate:"))
+                {
+                    diarrhea_christmas_lights = ImGui.Button("Diarrhea Christmas Lights");
+                    generate_noise = ImGui.Button("Generate Noise");
+                    open_profile = ImGui.Button("Open Profile");
+                    save_profile = ImGui.Button("Save Profile");
+                    ImGui.Indent();
+                    ImGui.SliderInt("Seed", ref seed, 0, int.MaxValue);
+                    var _vec3 = new System.Numerics.Vector3(noise.Zero.R / 255f, noise.Zero.G / 255f, noise.Zero.B / 255f);
+                    ImGui.ColorEdit3("First Colour", ref _vec3, ImGuiColorEditFlags.InputRGB);
+                    noise.Zero = new Color(_vec3.X, _vec3.Y, _vec3.Z);
+                    var __vec3 = new System.Numerics.Vector3(noise.One.R / 255f, noise.One.G / 255f, noise.One.B / 255f);
+                    ImGui.ColorEdit3("Last Colour", ref __vec3, ImGuiColorEditFlags.InputRGB);
+                    noise.One = new Color(__vec3.X, __vec3.Y, __vec3.Z);
 
-                ImGui.SliderFloat("Amplitude", ref noise.Amplitude, 0f, 1f);
-                ImGui.SliderFloat("Persistence", ref noise.Persistance, 0f, 1f);
-                ImGui.SliderFloat("Bilinear Lerp", ref noise.FilterLerp, 0f, 1f);
-                int temp = (int)noise.FilterPasses;
-                ImGui.InputInt("Bilinear Passes", ref temp);
-                noise.FilterPasses = temp < 0 ? 0 : (uint)temp;
+                    ImGui.SliderFloat("Amplitude", ref noise.Amplitude, 0f, 1f);
+                    ImGui.SliderFloat("Persistence", ref noise.Persistance, 0f, 1f);
+                    ImGui.SliderFloat("Bilinear Lerp", ref noise.FilterLerp, 0f, 1f);
+                    int temp = (int)noise.FilterPasses;
+                    ImGui.InputInt("Bilinear Passes", ref temp);
+                    noise.FilterPasses = temp < 0 ? 0 : (uint)temp;
 
-                ImGui.Text($"Width = 2^octaves * width * multi = {Math.Pow(2, noise.Octaves) * noise.WidthMulti * noise.OctaveMulti}");
-                ImGui.Text($"Width = 2^octaves * height * multi = {Math.Pow(2, noise.Octaves) * noise.HeightMulti * noise.OctaveMulti}");
+                    ImGui.Text($"Width = 2^octaves*width*multi = {Math.Pow(2, (noise.Octaves - 1)) * noise.WidthMulti * noise.OctaveMulti}");
+                    ImGui.Text($"Width = 2^octaves*height*multi = {Math.Pow(2, (noise.Octaves - 1)) * noise.HeightMulti * noise.OctaveMulti}");
 
-                temp = noise.Octaves;
-                ImGui.InputInt("Octave Count", ref temp);
-                noise.Octaves = temp < 1 ? (byte)1 : (byte)temp;
-                temp = (int)noise.OctaveMulti;
-                ImGui.InputInt("Octave interpolation stretch", ref temp);
-                noise.OctaveMulti = temp < 1 ? 1 : (uint)temp;
-                temp = (int)noise.WidthMulti;
-                ImGui.InputInt("Width", ref temp);
-                noise.WidthMulti = temp < 1 ? 1 : (uint)temp;
-                temp = (int)noise.HeightMulti;
-                ImGui.InputInt("Height", ref temp);
-                noise.HeightMulti = temp < 1 ? 1 : (uint)temp;
+                    temp = noise.Octaves;
+                    ImGui.InputInt("Octave Count", ref temp);
+                    noise.Octaves = temp < 1 ? (byte)1 : (byte)temp;
+                    temp = (int)noise.OctaveMulti;
+                    ImGui.InputInt("Octave interpolation stretch", ref temp);
+                    noise.OctaveMulti = temp < 1 ? 1 : (uint)temp;
+                    temp = (int)noise.WidthMulti;
+                    ImGui.InputInt("Width", ref temp);
+                    noise.WidthMulti = temp < 1 ? 1 : (uint)temp;
+                    temp = (int)noise.HeightMulti;
+                    ImGui.InputInt("Height", ref temp);
+                    noise.HeightMulti = temp < 1 ? 1 : (uint)temp;
 
-                ImGui.Unindent();
+                    ImGui.Unindent();
+                }
                 ImGui.Separator();
 
                 ImGui.Text("Process:");
@@ -303,6 +341,8 @@ namespace ArtProject
                 ImGui.Checkbox("Above", ref above);
                 ImGui.Checkbox("Reverse", ref reverse);
                 ImGui.Unindent();
+
+                // TODO: Filter ui implement
 
                 pixelate = ImGui.Button("Pixelate");
                 ImGui.Indent();
