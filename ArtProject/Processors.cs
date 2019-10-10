@@ -1,8 +1,7 @@
-using System;
-using System.Linq;
-using System.Collections.Generic;
-using Microsoft.Xna.Framework;
 using Extended.Generic;
+using Microsoft.Xna.Framework;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ArtProject
 {
@@ -168,7 +167,7 @@ namespace ArtProject
         }
 
         public static void ColorFloor(ref Color[,] texture, byte shift)
-        {   
+        {
             // for every pixel
             for (int x = 0; x < texture.GetLength(0); x++)
             {

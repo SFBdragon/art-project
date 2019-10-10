@@ -1,22 +1,22 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using Microsoft.Win32;
-using System;
-using System.IO;
+﻿using Extended.Generic;
+using Extended.Generic.Noise;
 using ImGuiNET;
 using ImGuiNET.XNA;
-using Extended.Generic;
-using Extended.Generic.Noise;
+using Microsoft.Win32;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using Newtonsoft.Json;
+using System;
+using System.IO;
 
 namespace ArtProject
 {
     public class GameLoop : Game
     {
         // library managers
-        readonly GraphicsDeviceManager graphics;
-        SpriteBatch spriteBatch;
+        private readonly GraphicsDeviceManager graphics;
+        private SpriteBatch spriteBatch;
         private ImGuiRenderer guiRenderer;
 
         // texture data
@@ -56,13 +56,13 @@ namespace ArtProject
         private bool above = false;
         private bool reverse = false;
         private bool colour_split = false;
-        private int split = 0; 
+        private int split = 0;
         private bool pixelate = false;
         private int pixel_size = 1;
         private bool greyscale = false;
         private bool colour_shift_down = false;
         private byte colour_shift_iterate = 0;
-        private bool filter = false;
+        private bool bfilter = false;
         private float lerp = 0.5f;
 
         // constructor
@@ -121,7 +121,12 @@ namespace ArtProject
             else if (open)
             {
                 // defocus window
+#if DEBUG
                 Window.IsBorderless = false;
+#else
+                graphics.IsFullScreen = false;
+                graphics.ApplyChanges();
+#endif
 
                 // get texture from filesystem ("render" is just used for temporary purposes, it gets overwritten immediately after)
                 var ofd = new OpenFileDialog
@@ -148,7 +153,12 @@ namespace ArtProject
                 colour_shift_iterate = 0;
 
                 // focus window
+#if DEBUG
                 Window.IsBorderless = true;
+#else
+                graphics.IsFullScreen = true;
+                graphics.ApplyChanges();
+#endif
             }
             else if (save) render.SaveAsPng(new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) + $"/{Environment.TickCount}.png", FileMode.Create), render.Width, render.Height);
 
@@ -165,7 +175,7 @@ namespace ArtProject
                 original = new Color[_noise.GetLength(0), _noise.GetLength(1)];
                 for (int x = 0; x < _noise.GetLength(0); x++)
                     for (int y = 0; y < _noise.GetLength(1); y++)
-                        original[x, y] = Color.Lerp(noise.Zero, noise.One, _noise[x,y]);
+                        original[x, y] = Color.Lerp(noise.Zero, noise.One, _noise[x, y]);
                 texture = (Color[,])original.Clone();
                 render = new Texture2D(GraphicsDevice, _noise.GetLength(0), _noise.GetLength(1));
                 colour_shift_iterate = 0;
@@ -218,6 +228,7 @@ namespace ArtProject
                 // focus window
                 Window.IsBorderless = true;
             }
+
             else if (scramble) Processors.TextureScramble(ref texture);
             else if (descramble) Processors.TextureDescramble(ref texture);
             else if (pixel_sort) Processors.QueueStackPixelSort(ref texture, Processors.GetSortQueue(texture, wrap, above), reverse);
@@ -240,7 +251,17 @@ namespace ArtProject
                 colour_shift_iterate++;
                 Processors.ColorFloor(ref texture, colour_shift_iterate);
             }
-            // TODO: Filter call implement
+            else if (bfilter)
+            {
+                for (int x = 1; x < texture.GetLength(0) - 1; x++)
+                    for (int y = 1; y < texture.GetLength(1) - 1; y++)
+                        texture[x, y] = Color.Lerp(texture[x, y], new Color((
+                            color2vec(texture[x, y - 1]) +
+                            color2vec(texture[x, y + 1]) +
+                            color2vec(texture[x - 1, y]) +
+                            color2vec(texture[x + 1, y])) / 4f / 255f),
+                            lerp);
+            }
 
             // processing texture -> render texture
             {
@@ -253,6 +274,8 @@ namespace ArtProject
 
             base.Update(gameTime);
         }
+
+        private Vector4 color2vec(Color c) { return new Vector4(c.R, c.G, c.B, c.A); }
 
         protected override void Draw(GameTime gameTime)
         {
@@ -342,7 +365,10 @@ namespace ArtProject
                 ImGui.Checkbox("Reverse", ref reverse);
                 ImGui.Unindent();
 
-                // TODO: Filter ui implement
+                bfilter = ImGui.Button("Bilinear Filter");
+                ImGui.Indent();
+                ImGui.SliderFloat("Interpolation", ref lerp, 0f, 1f);
+                ImGui.Unindent();
 
                 pixelate = ImGui.Button("Pixelate");
                 ImGui.Indent();
@@ -367,7 +393,7 @@ namespace ArtProject
         }
 
         [Serializable]
-        struct NoiseProfile
+        private struct NoiseProfile
         {
             public float Amplitude;
             public float Persistance;
